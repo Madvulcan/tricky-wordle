@@ -47,6 +47,9 @@ header {
   flex-shrink: 0;
 }
 h1 { font-size: 1.4rem; font-weight: 700; letter-spacing: 0.02em; text-transform: uppercase; }
+.game-title .t-green { color: var(--correct); }
+.game-title .t-yellow { color: var(--present); }
+.game-title .t-gray { color: var(--absent); }
 .header-spacer { width: 90px; }
 .header-buttons { display: flex; gap: 4px; width: 120px; justify-content: flex-end; }
 .icon-btn {
