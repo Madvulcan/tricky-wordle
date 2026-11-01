@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Tricky Wordle — Private Stats</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#x1F4CA;</text></svg>">
+<style>
+:root { --correct: #6aaa64; --present: #c9b458; --absent: #787c7e; --bg: #121213; --fg: #f7f7f7; --card: #1a1a1b; --border: #3a3a3c; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif; background: var(--bg); color: var(--fg); min-height: 100vh; padding: 2rem 1rem; }
+main { max-width: 860px; margin: 0 auto; }
+h1 { font-size: 1.5rem; text-transform: uppercase; letter-spacing: .03em; margin-bottom: .2rem; }
+h1 .g { color: var(--correct); } h1 .y { color: var(--present); } h1 .k { color: var(--absent); }
+.sub { opacity: .6; font-size: .8rem; margin-bottom: 1.5rem; }
+h2 { font-size: 1rem; text-transform: uppercase; letter-spacing: .05em; margin: 1.6rem 0 .6rem; opacity: .9; }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: .8rem; margin: 1rem 0; }
+.card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: .9rem 1.1rem; }
+.card .num { font-size: 1.7rem; font-weight: 700; }
+.card .label { font-size: .65rem; text-transform: uppercase; opacity: .65; letter-spacing: .05em; }
+table { border-collapse: collapse; width: 100%; background: var(--card); border-radius: 8px; overflow: hidden; }
+td, th { border-bottom: 1px solid var(--border); padding: .45rem .8rem; text-align: left; font-size: .9rem; }
+th { text-transform: uppercase; font-size: .7rem; letter-spacing: .05em; opacity: .7; background: #232325; }
+tr:last-child td { border-bottom: none; }
+td.num-cell { font-variant-numeric: tabular-nums; }
+.bar-wrap { background: #232325; border-radius: 3px; min-width: 60px; }
+.bar { background: var(--correct); border-radius: 3px; color: #fff; padding: 2px 8px; font-size: .8rem; font-weight: 600; display: inline-block; min-width: 18px; text-align: center; }
+.legend { font-size: .7rem; opacity: .5; margin-top: .3rem; }
+#gate { max-width: 380px; margin: 20vh auto; background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 2rem; text-align: center; }
+#gate input { width: 100%; padding: .7rem; border-radius: 6px; border: 1px solid var(--border); background: #232325; color: var(--fg); font-size: 1rem; margin: 1rem 0; }
+#gate button { width: 100%; padding: .7rem; border: none; border-radius: 6px; background: var(--correct); color: #fff; font-weight: 700; cursor: pointer; text-transform: uppercase; }
+#dash[hidden] { display: none; }
+.err { color: #e74c3c; font-size: .85rem; margin-top: .5rem; }
+.footer { margin-top: 2rem; font-size: .7rem; opacity: .4; }
+</style>
+</head>
+<body>
+<div id="gate">
+  <h1 style="font-size:1.2rem">🔒 Private stats</h1>
+  <p style="opacity:.7; font-size:.85rem; margin-top:.4rem">Enter the dashboard key to view Tricky Wordle statistics.</p>
+  <input type="password" id="key" placeholder="dashboard key" autocomplete="off">
+  <button id="go">Unlock</button>
+  <div id="err" class="err" hidden></div>
+</div>
+
+<main id="dash" hidden>
+  <h1><span class="g">T</span><span class="g">R</span><span class="y">I</span><span class="y">C</span><span class="y">K</span><span class="k">Y</span> <span class="g">W</span><span class="y">O</span><span class="y">R</span><span class="y">D</span><span class="g">L</span><span class="k">E</span> <span style="opacity:.5">&mdash; private stats</span></h1>
+  <div class="sub" id="gen-at"></div>
+
+  <div class="cards" id="top-cards"></div>
+
+  <h2>Guess distribution (winning games)</h2>
+  <div id="dist"></div>
+  <div class="legend">1–6 = number of guesses used. Bar length relative to most common.</div>
+
+  <h2>Plays per daily game</h2>
+  <div id="daily-table"></div>
+
+  <h2>Word difficulty leaderboard</h2>
+  <div id="word-table"></div>
+  <div class="legend">Solve % and average tries per word. Sorts by plays.</div>
+
+  <div class="footer">Data: Supabase <code>tw_events</code> · aggregated via <code>tw_dashboard_stats()</code> · no cookies, no fingerprinting, aggregate-only.</div>
+</main>
+
+<script>
+const SUPABASE_URL = "https://zjifxqmdxdigztlnpiwi.supabase.co";
+const PUBLISHABLE = "sb_publishable_sLtvBKIN3ZeWoXjakjLJKg_AQGL1Dvp";
+// The dashboard key gates the aggregate RPC: tw_dashboard_stats(dashboard_key)
+// compares against a secrets table only service_role can read. Wrong key => error.
+// Aggregate-only data leaves the database; no row-level detail is exposed.
+const KEY_STORAGE = "tw-dash-key";
+
+const gate = document.getElementById("gate");
+const dash = document.getElementById("dash");
+const errEl = document.getElementById("err");
+
+async function loadDashboard(key) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/tw_dashboard_stats`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      apikey: PUBLISHABLE,
+      Authorization: `Bearer ${PUBLISHABLE}`,
+    },
+    body: JSON.stringify({ dashboard_key: key }),
+  });
+  if (!res.ok) throw new Error(`RPC failed: ${res.status}`);
+  const data = (await res.json())[0];
+  if (!data) throw new Error("empty response");
+  return data;
+}
+
+function pct(a, b) { return b ? (100 * a / b).toFixed(1) + "%" : "—"; }
+
+function render(d) {
+  document.getElementById("gen-at").textContent =
+    `generated ${new Date().toLocaleString()} · ${d.total_games} games · ${d.total_visits} visits`;
+
+  const cards = [
+    [d.total_visits, "Visits"],
+    [d.total_games, "Games finished"],
+    [d.daily_plays, "Daily plays"],
+    [pct(d.total_wins, d.total_games), "Solve rate"],
+    [pct(d.daily_wins, d.daily_plays), "Daily solve rate"],
+    [pct(d.daily_plays, d.total_games), "Daily share of games"],
+    [pct(0, 100) === "" ? "" : `${d.hard_mode_share}%`, "Hard mode share"],
+    [`${d.share_rate}%`, "Games shared"],
+    [d.share_count, "Shares clicked"],
+  ];
+  document.getElementById("top-cards").innerHTML = cards
+    .map(([n, l]) => `<div class="card"><div class="num">${n ?? "—"}</div><div class="label">${l}</div></div>`)
+    .join("");
+
+  // distribution
+  const dist = Object.entries(d.guess_distribution || {}).map(([k, v]) => [parseInt(k), v]).sort((a, b) => a[0] - b[0]);
+  const maxN = Math.max(...dist.map(([, n]) => n), 1);
+  document.getElementById("dist").innerHTML = [1, 2, 3, 4, 5, 6].map((n) => {
+    const v = (dist.find(([k]) => k === n) || [null, 0])[1];
+    const w = Math.max((v / maxN) * 100, 6);
+    return `<div style="display:flex;align-items:center;gap:8px;margin:3px 0"><div style="width:12px;font-weight:700">${n}</div><div class="bar-wrap" style="flex:1"><span class="bar" style="width:${w}%">${v}</span></div></div>`;
+  }).join("");
+
+  // daily counts
+  const dc = Object.entries(d.daily_counts || {}).sort((a, b) => a[0] - b[0]);
+  document.getElementById("daily-table").innerHTML = dc.length
+    ? `<table><tr><th>Game #</th><th>Players (unique UA/day)</th></tr>${dc.map(([g, n]) => `<tr><td class="num-cell">${g}</td><td class="num-cell">${n}</td></tr>`).join("")}</table>`
+    : "<em style='opacity:.5'>no daily plays yet</em>";
+
+  // per word
+  const pw = Object.entries(d.per_word || {}).map(([w, s]) => ({ w, ...s }))
+    .sort((a, b) => b.plays - a.plays);
+  document.getElementById("word-table").innerHTML = pw.length
+    ? `<table><tr><th>Word</th><th>Plays</th><th>Solve %</th><th>Avg tries</th></tr>${pw.map((r) =>
+        `<tr><td>${r.w}</td><td class="num-cell">${r.plays}</td><td class="num-cell">${pct(r.wins, r.plays)}</td><td class="num-cell">${r.avg_tries ?? "—"}</td></tr>`).join("")}</table>`
+    : "<em style='opacity:.5'>no games yet</em>";
+}
+
+async function tryKey(key, persist) {
+  errEl.hidden = true;
+  try {
+    const d = await loadDashboard(key);
+    render(d);
+    gate.hidden = true;
+    dash.hidden = false;
+    if (persist) localStorage.setItem(KEY_STORAGE, key);
+  } catch (e) {
+    errEl.textContent = "Wrong key or network error.";
+    errEl.hidden = false;
+  }
+}
+
+document.getElementById("go").addEventListener("click", () => {
+  const k = document.getElementById("key").value.trim();
+  if (k) tryKey(k, true);
+});
+document.getElementById("key").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") document.getElementById("go").click();
+});
+
+const saved = localStorage.getItem(KEY_STORAGE);
+if (saved) tryKey(saved, false);
+</script>
+</body>
+</html>

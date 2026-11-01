@@ -5,6 +5,31 @@
   const G = window.GameLogic;
   const MAX_ROWS = 6;
   const STORE_KEY = "tricky-wordle-v1";
+  const COLLECT_URL = "https://zjifxqmdxdigztlnpiwi.supabase.co/rest/v1/tw_events";
+  const SUPABASE_PUBLISHABLE = "sb_publishable_sLtvBKIN3ZeWoXjakjLJKg_AQGL1Dvp";
+
+  // ---------- telemetry (private dashboard) ----------
+  // Fire-and-forget inserts into Supabase (anon key can INSERT only - RLS blocks reads).
+  // Failures are swallowed so the game never notices analytics.
+  function reportEvent(name, props) {
+    try {
+      const row = { event: name, ts: new Date().toISOString(), ...props };
+      fetch(COLLECT_URL, {
+        method: "POST",
+        body: JSON.stringify(row),
+        keepalive: true,
+        headers: {
+          "Content-Type": "application/json",
+          Prefer: "return=minimal",
+          apikey: SUPABASE_PUBLISHABLE,
+          Authorization: `Bearer ${SUPABASE_PUBLISHABLE}`,
+        },
+      }).catch(() => {});
+    } catch {
+      /* analytics must never break the game */
+    }
+  }
+  reportEvent("visit", { page: location.pathname });
 
   // ---------- state ----------
   const state = {
@@ -320,6 +345,14 @@
       if (state.mode === "daily") state.lastCountedDay = today;
       const stats = G.updateStats(loadStats(state.mode), won, won ? tries : 6);
       saveStats(state.mode, stats);
+      reportEvent("game_end", {
+        mode: state.mode,
+        won,
+        tries,
+        answer: state.answer,
+        game_number: state.mode === "daily" ? state.gameNumber : null,
+        hard_mode: state.hardMode,
+      });
     }
     if (state.mode === "free") {
       state.lastFreeAnswer = state.answer;
@@ -393,12 +426,15 @@
         state.verdicts
       );
       copyText(state.mode === "daily" ? text : text.replace("Tricky Wordle 0", "Tricky Wordle (Free)"));
+      reportEvent("share", { mode: state.mode, won, tries });
     };
     shareGuesses.onclick = () => {
       copyText(`${head}\n${G.shareTextWithGuesses(state.guesses, state.verdicts)}`);
+      reportEvent("share_guesses", { mode: state.mode, won, tries });
     };
     shareReddit.onclick = () => {
       copyText(`${head}\n${G.shareTextReddit(state.guesses, state.verdicts)}`);
+      reportEvent("share_reddit", { mode: state.mode, won, tries });
     };
     again.onclick = () => {
       closeAllPanels();
