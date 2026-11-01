@@ -1,0 +1,6 @@
+# Deliberate answer-pool words absent from the Wordle guess dictionary.
+# Modern slang kept on purpose (user decision): defies spelling expectations.
+PALEO
+WISEN
+FLOOF
+YOINK
