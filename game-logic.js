@@ -66,20 +66,18 @@
     return usable[r];
   }
 
-  /** Unbiased uniform int in [0, max) via crypto.getRandomValues rejection sampling. */
   function secureRandomInt(max) {
     if (max <= 0) throw new Error("max must be positive");
+    const cryptoObj = typeof self !== "undefined" && self.crypto ? self.crypto : typeof require !== "undefined" ? require("crypto").webcrypto : globalThis.crypto;
     const range = 4294967296; // 2^32
     const limit = range - (range % max);
-    const buf = new Uint32Array(1);
     let x;
     do {
       const arr = new Uint32Array(1);
-      self.crypto.getRandomValues(arr);
+      cryptoObj.getRandomValues(arr);
       x = arr[0];
     } while (x >= limit);
     return x % max;
-    void buf;
   }
 
   /**
@@ -125,8 +123,6 @@
     if (won) {
       s.dist[tries - 1]++;
       s.maxStreak = Math.max(s.maxStreak, s.streak);
-    } else {
-      s.dist[5] += 0; // losses tracked via played-wins
     }
     return s;
   }

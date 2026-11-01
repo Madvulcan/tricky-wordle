@@ -90,7 +90,7 @@ def main() -> None:
 
     (ROOT / "words-guesses.js").write_text(guesses_js)
     (ROOT / "words-answers.js").write_text(answers_js)
-    print(f"OK: {len(pool)} answers, {len(guesses)} guess words, rotation generated")
+    print(f"OK: {len(pool)} answers, {len(guesses | overrides)} guess words, rotation generated")
 
 
 def json_js(words: list) -> str:

@@ -31,9 +31,22 @@
   WORDS_ANSWERS.forEach((w) => VALID_GUESSES.add(w)); // slang overrides are guessable
 
   // ---------- persistence ----------
-  function load() {
+  function safeStorage() {
+    // Probe storage access once; some environments (private mode, quotas) throw.
     try {
-      return JSON.parse(localStorage.getItem(STORE_KEY)) || {};
+      localStorage.setItem(STORE_KEY + "-probe", "1");
+      localStorage.removeItem(STORE_KEY + "-probe");
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  const storageOk = safeStorage();
+  function load() {
+    if (!storageOk) return {};
+    try {
+      const v = JSON.parse(localStorage.getItem(STORE_KEY));
+      return v && typeof v === "object" ? v : {};
     } catch {
       return {};
     }
@@ -53,7 +66,13 @@
     }
     d.day = G.dayNumber(new Date());
     d.hardMode = state.hardMode;
-    localStorage.setItem(STORE_KEY, JSON.stringify(d));
+    if (storageOk) {
+      try {
+        localStorage.setItem(STORE_KEY, JSON.stringify(d));
+      } catch {
+        /* quota/private-mode: play continues without persistence */
+      }
+    }
   }
   function loadStats(mode) {
     const d = load();
@@ -65,7 +84,13 @@
     const d = load();
     d.stats = d.stats || {};
     d.stats[mode] = s;
-    localStorage.setItem(STORE_KEY, JSON.stringify(d));
+    if (storageOk) {
+      try {
+        localStorage.setItem(STORE_KEY, JSON.stringify(d));
+      } catch {
+        /* ignore */
+      }
+    }
   }
 
   // ---------- word selection ----------
@@ -95,6 +120,8 @@
     state.current = "";
     state.gameOver = false;
     state.animating = false;
+    state.lastCountedDay = null; // per-day stats guard for daily mode
+    for (const k of Object.keys(keyColors)) delete keyColors[k]; // no stale hints
     buildBoard();
     paintKeyboard();
     save();
@@ -165,7 +192,7 @@
   }
 
   // ---------- keyboard ----------
-  const keyColors = {}; // letter -> class
+  const keyColors = {}; // letter -> class (referenced by beginRound before definition; hoisted const via object identity)
   function updateKeyColor(letter, cls) {
     const order = ["correct", "present", "absent"];
     if (!keyColors[letter] || order.indexOf(cls) < order.indexOf(keyColors[letter])) {
@@ -285,14 +312,22 @@
 
   function finishRound(won, tries) {
     state.gameOver = true;
-    const stats = G.updateStats(loadStats(state.mode), won, won ? tries : 6);
-    saveStats(state.mode, stats);
+    // Stats guard: a daily word's result counts exactly once, on the day it was played.
+    const today = G.dayNumber(new Date());
+    const alreadyCounted =
+      state.mode === "daily" && state.lastCountedDay === today;
+    if (!alreadyCounted) {
+      if (state.mode === "daily") state.lastCountedDay = today;
+      const stats = G.updateStats(loadStats(state.mode), won, won ? tries : 6);
+      saveStats(state.mode, stats);
+    }
     if (state.mode === "free") {
       state.lastFreeAnswer = state.answer;
       state.freePlayed.push(state.answer);
+      if (state.freePlayed.length > 50) state.freePlayed = state.freePlayed.slice(-50); // bound growth
     }
     save();
-    setTimeout(() => showEnd(won, tries, stats), 400);
+    setTimeout(() => showEnd(won, tries, loadStats(state.mode)), 400);
   }
 
   // ---------- panels ----------
@@ -316,8 +351,7 @@
     renderStatsInto(document.getElementById("end-stats"), stats, tries);
     const share = document.getElementById("btn-share");
     const again = document.getElementById("btn-free-again");
-    share.classList.toggle("hidden", state.mode === "free" && !won && tries >= MAX_ROWS ? false : false);
-    share.classList.toggle("hidden", false);
+    share.style.display = ""; // reveal Share now that the panel is populated
     again.classList.toggle("hidden", state.mode !== "free");
     share.onclick = () => {
       const text = G.shareText(
@@ -326,9 +360,31 @@
         tries,
         state.verdicts
       );
-      navigator.clipboard
-        .writeText(state.mode === "daily" ? text : text.replace("Tricky Wordle 0", "Tricky Wordle (Free)"))
-        .then(() => toast("Copied to clipboard"));
+      const final = state.mode === "daily" ? text : text.replace("Tricky Wordle 0", "Tricky Wordle (Free)");
+      const copyFallback = () => {
+        // Plain-HTTP / old-browser fallback: hidden textarea + execCommand.
+        try {
+          const ta = document.createElement("textarea");
+          ta.value = final;
+          ta.style.position = "fixed";
+          ta.style.opacity = "0";
+          document.body.appendChild(ta);
+          ta.select();
+          const ok = document.execCommand("copy");
+          document.body.removeChild(ta);
+          toast(ok ? "Copied to clipboard" : "Copy failed - select the grid manually");
+        } catch {
+          toast("Copy failed - select the grid manually");
+        }
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard
+          .writeText(final)
+          .then(() => toast("Copied to clipboard"))
+          .catch(copyFallback);
+      } else {
+        copyFallback();
+      }
     };
     again.onclick = () => {
       closeAllPanels();
@@ -342,12 +398,18 @@
       const now = new Date();
       const next = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
       const s = Math.floor((next - now) / 1000);
+      if (s <= 1) {
+        // Midnight passed: serve the new day's word only if the daily tab is active.
+        clearInterval(el._h);
+        if (state.mode === "daily" && !document.querySelector(".overlay:not(.hidden)")) {
+          startDaily();
+        }
+        return;
+      }
       const h = String(Math.floor(s / 3600)).padStart(2, "0");
       const m = String(Math.floor((s % 3600) / 60)).padStart(2, "0");
       const sec = String(s % 60).padStart(2, "0");
       el.textContent = `Next word in ${h}:${m}:${sec}`;
-      // roll over at midnight
-      if (s <= 1) startDaily();
     };
     tick();
     el._h = setInterval(tick, 1000);
@@ -450,14 +512,20 @@
     state.lastFreeAnswer = d.lastFreeAnswer || null;
 
     const today = G.dayNumber(new Date());
-    if (d.daily && d.day === today && d.daily.answer) {
-      // resume today's daily
+    // Restore today's daily ONLY if the stored answer is still the correct word for
+    // today per the rotation — never trust the self-reported day stamp.
+    if (
+      d.daily &&
+      d.daily.answer &&
+      d.daily.answer === G.pickDailyWord(today, ROTATION)
+    ) {
       state.mode = "daily";
       state.answer = d.daily.answer;
-      state.gameNumber = d.daily.gameNumber;
+      state.gameNumber = d.daily.gameNumber || today + 1;
       state.guesses = d.daily.guesses || [];
       state.verdicts = d.daily.verdicts || [];
       state.gameOver = d.daily.gameOver || state.guesses.length >= MAX_ROWS;
+      if (state.gameOver) state.lastCountedDay = today; // result already counted
       buildBoard();
       paintKeyboard();
       if (state.gameOver) setTimeout(() => showEnd(state.verdicts.every((v) => v.every((x) => x === "correct")), state.guesses.length, loadStats("daily")), 300);
