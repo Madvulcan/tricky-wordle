@@ -406,11 +406,13 @@
   document.getElementById("tab-daily").addEventListener("click", () => {
     document.getElementById("tab-daily").classList.add("active");
     document.getElementById("tab-free").classList.remove("active");
+    closeAllPanels();
     startDaily();
   });
   document.getElementById("tab-free").addEventListener("click", () => {
     document.getElementById("tab-free").classList.add("active");
     document.getElementById("tab-daily").classList.remove("active");
+    closeAllPanels();
     startFree();
   });
 
