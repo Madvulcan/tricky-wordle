@@ -44,6 +44,7 @@
     freePlayed: [], // this session's free-play answers
     lastFreeAnswer: null,
     animating: false,
+    roundId: 0, // incremented by beginRound; pending animation timers check it
   };
 
   const KEYS = [
@@ -140,6 +141,7 @@
     beginRound();
   }
   function beginRound() {
+    state.roundId++; // invalidate any pending animation timers from the prior round
     state.guesses = [];
     state.verdicts = [];
     state.current = "";
@@ -185,11 +187,13 @@
   }
   function paintRow(r, guess, verdicts, animate) {
     const tiles = rowTiles(r);
+    const myRound = state.roundId; // pending timers no-op if the round restarts
     for (let c = 0; c < 5; c++) {
       const tile = tiles[c];
       tile.textContent = guess[c];
       const cls = { correct: "correct", present: "present", absent: "absent" }[verdicts[c]];
       const apply = () => {
+        if (state.roundId !== myRound) return; // round restarted mid-flip: stale colors
         tile.classList.remove("filled");
         tile.classList.add(cls);
         updateKeyColor(guess[c], cls);
@@ -201,6 +205,7 @@
       tiles.forEach((t) => t.classList.add("reveal-correct"));
       const last = tiles[4];
       setTimeout(() => {
+        if (state.roundId !== myRound) return;
         last.classList.add("bounce");
         last.classList.remove("reveal-correct", "bounce");
         tileClasses(tiles, verdicts);
@@ -319,6 +324,7 @@
       }
     }
     const verdicts = G.scoreGuess(state.answer, guess);
+    const myRound = state.roundId; // for the post-animation callback
     state.guesses.push(guess);
     state.verdicts.push(verdicts);
     state.current = "";
@@ -330,6 +336,7 @@
     const done = won || state.guesses.length >= MAX_ROWS;
     setTimeout(() => {
       state.animating = false;
+      if (state.roundId !== myRound) return; // round restarted mid-flip: don't finish it
       if (done) finishRound(won, state.guesses.length);
       else paintCurrent();
     }, 5 * 300 + 350);
@@ -516,12 +523,16 @@
   );
 
   document.getElementById("tab-daily").addEventListener("click", () => {
+    if (state.animating) return; // no rebuild mid-flip
+    if (state.mode === "daily" && !state.gameOver) return; // already there, round live
     document.getElementById("tab-daily").classList.add("active");
     document.getElementById("tab-free").classList.remove("active");
     closeAllPanels();
     startDaily();
   });
   document.getElementById("tab-free").addEventListener("click", () => {
+    if (state.animating) return; // no rebuild mid-flip
+    if (state.mode === "free" && !state.gameOver) return; // already there, round live
     document.getElementById("tab-free").classList.add("active");
     document.getElementById("tab-daily").classList.remove("active");
     closeAllPanels();
