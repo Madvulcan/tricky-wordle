@@ -7,7 +7,8 @@ without being esoteric (HAIKU, FUNGI, SATYR, KAPUT).
 
 ## Play
 
-Open `index.html` — that's it. No backend, no build step, no dependencies.
+**Live: https://trickywordle.madvulcan.net** (custom domain, HTTPS enforced).
+Or open `index.html` directly — no backend, no build step, no dependencies.
 
 - **Daily mode** — one word per calendar day (visitor-local midnight), same for
   everyone. Answers rotate through the full pool in a fixed hash-shuffled order,
@@ -56,6 +57,23 @@ bash tests/run_tests.sh
 python3 -m http.server 8000
 # then open http://localhost:8000
 ```
+
+## Private stats dashboard
+
+`dashboard.html` (noindex) shows aggregate play stats: solve rates, guess
+distribution, hard-mode share, share usage, unique players per daily game, and
+a per-word difficulty leaderboard. Backed by Supabase (free tier):
+
+- The game fire-and-forget posts `visit` / `game_end` / `share*` events to the
+  `tw_events` table. Failures are swallowed; analytics can never affect play.
+- Visitor browsers hold only the publishable key — Row Level Security allows
+  INSERT and blocks all reads.
+- The dashboard page gates on a dashboard key (stored in localStorage after
+  first entry) and reads aggregate-only data via the `tw_dashboard_stats` RPC.
+  No row-level data ever leaves the database. No cookies, no fingerprinting.
+- Connection details and operational gotchas live in the agent-side
+  `tricky-wordle` skill; the dashboard key and Supabase project ref are in the
+  Hermes skills store, not in this repo.
 
 ## License
 
