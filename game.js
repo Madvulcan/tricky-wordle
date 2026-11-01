@@ -528,7 +528,11 @@
       if (state.gameOver) state.lastCountedDay = today; // result already counted
       buildBoard();
       paintKeyboard();
-      if (state.gameOver) setTimeout(() => showEnd(state.verdicts.every((v) => v.every((x) => x === "correct")), state.guesses.length, loadStats("daily")), 300);
+      if (state.gameOver) {
+        const lastRow = state.verdicts[state.verdicts.length - 1];
+        const won = !!lastRow && lastRow.every((x) => x === "correct");
+        setTimeout(() => showEnd(won, state.guesses.length, loadStats("daily")), 300);
+      }
       return;
     }
     startDaily();
