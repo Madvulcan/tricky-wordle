@@ -47,6 +47,38 @@ existing answers or breaks the schedule.
 - `PALEO`, `WISEN`, `FLOOF`, `YOINK` are deliberate modern-slang answers kept
   via `tools/guess-overrides.txt` despite not being in the guess dictionary.
 
+## What makes this list different
+
+Every word in this game lives in your vocabulary. That's the trap, and the
+point.
+
+Most "hard Wordle" clones reach for obscurity — words you'll meet once and
+forget. This pool is built on a different discovery: the hardest words aren't
+the rare ones. They're the *familiar* ones whose spelling fights your recall.
+EMAIL. EMOJI. WOMAN. Words you type twenty times a day, but whose letters
+refuse to assemble when a green square demands them. Psychologists call it the
+curse of knowledge; Wordle players call it losing to a word a toddler knows.
+
+So the curation works two seams at once. One: words that are genuinely
+uncommon but instantly recognizable on reveal — HAIKU, FUNGI, SATYR, KAPUT —
+the "oh yeah, *that* word" feeling, calibrated against frequency data so the
+rarities never cross into esoterica. Two: everyday words with warped
+architecture — W-opens (WOMAN, WEIRD), silent letters and Frankenstein
+clusters (GNOME, PSALM, THIGH), vowels running wild (OZONE, EERIE, EMAIL),
+loanwords wearing their native spelling (SAUNA, MATZO), and words you say
+constantly but have never once seen written down (FLOOF, YOINK, WISEN).
+Saying a word and spelling a word turn out to be different skills; this game
+scores the gap.
+
+Just as deliberate are the exclusions. No MAMMA-class trappery — difficulty by
+doubled-letter ambush tests nothing but paranoia. And the pool quietly stages
+vocabulary against itself: PITHY waits on one board, LITHE on another, so the
+_ITH_ pattern you've learned betrays you the following week.
+
+944 words. One a day. The full cycle takes two and a half years — by which
+time, if the list has done its job, you'll have been humbled by every word you
+already knew.
+
 ## Development
 
 ```bash
