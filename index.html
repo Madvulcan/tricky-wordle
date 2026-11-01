@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Tricky Wordle</title>
+<link rel="stylesheet" href="styles.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#x1F7E9;</text></svg>">
+</head>
+<body>
+<header>
+  <div class="header-spacer"></div>
+  <h1>Tricky Wordle</h1>
+  <div class="header-buttons">
+    <button id="btn-help" class="icon-btn" aria-label="How to play">?</button>
+    <button id="btn-stats" class="icon-btn" aria-label="Statistics">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V10M12 20V4M20 20v-7"/></svg>
+    </button>
+    <button id="btn-settings" class="icon-btn" aria-label="Settings">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    </button>
+  </div>
+</header>
+
+<main>
+  <div id="mode-tabs" role="tablist">
+    <button id="tab-daily" class="mode-tab active" role="tab">Daily</button>
+    <button id="tab-free" class="mode-tab" role="tab">Free Play</button>
+  </div>
+
+  <div id="board" aria-label="Wordle board"></div>
+
+  <div id="keyboard" aria-label="Keyboard"></div>
+</main>
+
+<!-- Toast -->
+<div id="toast" class="toast hidden" role="status"></div>
+
+<!-- End panel -->
+<div id="end-panel" class="overlay hidden">
+  <div class="panel">
+    <button class="panel-close" id="end-close" aria-label="Close">&times;</button>
+    <h2 id="end-title"></h2>
+    <div id="end-word" class="end-word"></div>
+    <div id="end-grid" class="end-grid"></div>
+    <div id="end-countdown" class="end-countdown"></div>
+    <div id="end-stats" class="end-stats"></div>
+    <button id="btn-share" class="btn-primary">Share <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg></button>
+    <button id="btn-free-again" class="btn-primary hidden">Play again</button>
+  </div>
+</div>
+
+<!-- Stats panel -->
+<div id="stats-panel" class="overlay hidden">
+  <div class="panel">
+    <button class="panel-close" id="stats-close" aria-label="Close">&times;</button>
+    <h2>Statistics</h2>
+    <div id="stats-body"></div>
+  </div>
+</div>
+
+<!-- Help panel -->
+<div id="help-panel" class="overlay hidden">
+  <div class="panel">
+    <button class="panel-close" id="help-close" aria-label="Close">&times;</button>
+    <h2>How to play</h2>
+    <p>Guess the 5-letter word in 6 tries. Every word comes from a hand-curated
+    list of <em>tricky but familiar</em> words &mdash; words you know, but that
+    don't come easily.</p>
+    <div class="example-row"><span class="tile correct">G</span><span class="tile">H</span><span class="tile">O</span><span class="tile">S</span><span class="tile">T</span></div>
+    <p><strong>G</strong> is in the word and in the right spot.</p>
+    <div class="example-row"><span class="tile">P</span><span class="tile">I</span><span class="tile present">Q</span><span class="tile">U</span><span class="tile">E</span></div>
+    <p><strong>Q</strong> is in the word but in the wrong spot.</p>
+    <div class="example-row"><span class="tile">V</span><span class="tile">A</span><span class="tile">P</span><span class="tile">I</span><span class="tile absent">D</span></div>
+    <p><strong>D</strong> is not in the word in any spot.</p>
+    <p class="tagline">A new puzzle every day. Can you keep your streak?</p>
+  </div>
+</div>
+
+<!-- Settings panel -->
+<div id="settings-panel" class="overlay hidden">
+  <div class="panel">
+    <button class="panel-close" id="settings-close" aria-label="Close">&times;</button>
+    <h2>Settings</h2>
+    <div class="setting-row">
+      <span>Hard mode <small>(revealed hints must be reused)</small></span>
+      <label class="switch"><input type="checkbox" id="toggle-hard"><span class="slider"></span></label>
+    </div>
+    <div class="setting-row">
+      <span>Dark theme</span>
+      <label class="switch"><input type="checkbox" id="toggle-dark"><span class="slider"></span></label>
+    </div>
+    <div class="setting-row danger">
+      <span>Reset statistics</span>
+      <button id="btn-reset" class="btn-danger">Reset</button>
+    </div>
+  </div>
+</div>
+
+<script src="words-guesses.js"></script>
+<script src="words-answers.js"></script>
+<script src="game-logic.js"></script>
+<script src="game.js"></script>
+</body>
+</html>
