@@ -137,6 +137,38 @@
     return `${head}\n${body}`;
   }
 
+  /**
+   * Share variant with guesses spelled out alongside each row.
+   * The winning row's word is revealed; earlier rows are guesses (already public
+   * once posted - they are not the answer), matching the user's requested format.
+   * @param {string[]} guesses the guessed words, in order
+   * @param {Array} grid verdict arrays
+   */
+  function shareTextWithGuesses(guesses, grid) {
+    const emoji = { correct: "\u2B1C", present: "\u2B1C", absent: "\u2B1C" };
+    return guesses
+      .map((g, i) => {
+        const cells = grid[i].map(() => "\u2B1C").join("");
+        return `${cells} ${g}`;
+      })
+      .join("\n");
+  }
+
+  /**
+   * Reddit-friendly variant: white squares + spoiler-masked words.
+   * Reddit's spoiler syntax (>!word!<) hides the guess until clicked.
+   * @param {string[]} guesses
+   * @param {Array} grid
+   */
+  function shareTextReddit(guesses, grid) {
+    return guesses
+      .map((g, i) => {
+        const cells = grid[i].map(() => "\u2B1C").join("");
+        return `${cells} >!${g}!<`;
+      })
+      .join("\n");
+  }
+
   return {
     EPOCH,
     scoreGuess,
@@ -147,5 +179,7 @@
     checkHardMode,
     updateStats,
     shareText,
+    shareTextWithGuesses,
+    shareTextReddit,
   };
 });

@@ -164,3 +164,40 @@ test("shareText: loss shows X", () => {
   const t = L.shareText(42, false, 6, grid);
   assert.match(t, /^Tricky Wordle 42 X\/6\n/);
 });
+
+// ---------- share variants ----------
+test("shareTextWithGuesses: white squares + words per row", () => {
+  const grid = [
+    ["absent", "present", "absent", "correct", "absent"],
+    ["correct", "correct", "correct", "correct", "correct"],
+  ];
+  const t = L.shareTextWithGuesses(["STOIC", "EMAIL"], grid);
+  const lines = t.split("\n");
+  assert.strictEqual(lines.length, 2);
+  // all cells are white squares U+2B1C
+  assert.strictEqual(lines[0].match(/\u2B1C/g).length, 5);
+  assert.ok(lines[0].endsWith(" STOIC"));
+  assert.ok(lines[1].endsWith(" EMAIL"));
+  // no green/yellow/black squares in this variant
+  assert.ok(!/[\u{1F7E9}\u{1F7E8}\u2B1B]/u.test(t));
+});
+
+test("shareTextReddit: spoiler syntax per row", () => {
+  const grid = [Array(5).fill("absent")];
+  const t = L.shareTextReddit(["QUAIL"], grid);
+  assert.strictEqual(t, "\u2B1C\u2B1C\u2B1C\u2B1C\u2B1C >!QUAIL!<");
+  const grid2 = [
+    ["absent", "present", "absent", "correct", "absent"],
+    ["correct", "correct", "correct", "correct", "correct"],
+  ];
+  const t2 = L.shareTextReddit(["STOIC", "EMAIL"], grid2);
+  const lines = t2.split("\n");
+  assert.strictEqual(lines[0], "\u2B1C\u2B1C\u2B1C\u2B1C\u2B1C >!STOIC!<");
+  assert.strictEqual(lines[1], "\u2B1C\u2B1C\u2B1C\u2B1C\u2B1C >!EMAIL!<");
+});
+
+test("classic shareText unchanged (emoji grid, no words)", () => {
+  const grid = [["correct", "correct", "correct", "correct", "correct"]];
+  const t = L.shareText(7, true, 1, grid);
+  assert.match(t, /^Tricky Wordle 7 1\/6\n\u{1F7E9}{5}$/u);
+});

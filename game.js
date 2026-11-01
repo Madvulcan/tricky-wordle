@@ -350,19 +350,16 @@
     }
     renderStatsInto(document.getElementById("end-stats"), stats, tries);
     const share = document.getElementById("btn-share");
+    const shareGuesses = document.getElementById("btn-share-guesses");
+    const shareReddit = document.getElementById("btn-share-reddit");
     const again = document.getElementById("btn-free-again");
-    share.style.display = ""; // reveal Share now that the panel is populated
+    // Reveal all share buttons now that the panel is populated.
+    [share, shareGuesses, shareReddit].forEach((b) => (b.style.display = ""));
     again.classList.toggle("hidden", state.mode !== "free");
-    share.onclick = () => {
-      const text = G.shareText(
-        state.mode === "daily" ? state.gameNumber : 0,
-        won,
-        tries,
-        state.verdicts
-      );
-      const final = state.mode === "daily" ? text : text.replace("Tricky Wordle 0", "Tricky Wordle (Free)");
+
+    // Shared copy plumbing: clipboard API with textarea fallback (plain-HTTP safe).
+    const copyText = (final) => {
       const copyFallback = () => {
-        // Plain-HTTP / old-browser fallback: hidden textarea + execCommand.
         try {
           const ta = document.createElement("textarea");
           ta.value = final;
@@ -385,6 +382,23 @@
       } else {
         copyFallback();
       }
+    };
+    const head = `${state.mode === "daily" ? `Tricky Wordle ${state.gameNumber}` : "Tricky Wordle (Free)"} ${won ? tries : "X"}/6`;
+
+    share.onclick = () => {
+      const text = G.shareText(
+        state.mode === "daily" ? state.gameNumber : 0,
+        won,
+        tries,
+        state.verdicts
+      );
+      copyText(state.mode === "daily" ? text : text.replace("Tricky Wordle 0", "Tricky Wordle (Free)"));
+    };
+    shareGuesses.onclick = () => {
+      copyText(`${head}\n${G.shareTextWithGuesses(state.guesses, state.verdicts)}`);
+    };
+    shareReddit.onclick = () => {
+      copyText(`${head}\n${G.shareTextReddit(state.guesses, state.verdicts)}`);
     };
     again.onclick = () => {
       closeAllPanels();
