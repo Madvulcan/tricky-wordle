@@ -29,7 +29,7 @@
       /* analytics must never break the game */
     }
   }
-  reportEvent("visit", { page: location.pathname });
+  reportEvent("visit", {});
 
   // ---------- state ----------
   const state = {
