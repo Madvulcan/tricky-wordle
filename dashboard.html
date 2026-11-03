@@ -50,16 +50,24 @@ td.num-cell { font-variant-numeric: tabular-nums; }
 
   <div class="cards" id="top-cards"></div>
 
-  <h2>Guess distribution (winning games)</h2>
-  <div id="dist"></div>
-  <div class="legend">1–6 = number of guesses used. Bar length relative to most common.</div>
+  <h2>Daily game</h2>
+  <div class="cards" id="daily-cards"></div>
+  <h3 style="margin:.8rem 0 .4rem; font-size:.85rem; text-transform:uppercase; opacity:.75">Guess distribution (winning games)</h3>
+  <div id="daily-dist"></div>
+  <h3 style="margin:1.2rem 0 .4rem; font-size:.85rem; text-transform:uppercase; opacity:.75">Word difficulty leaderboard</h3>
+  <div id="daily-word-table"></div>
+
+  <h2>Free play</h2>
+  <div class="cards" id="free-cards"></div>
+  <h3 style="margin:.8rem 0 .4rem; font-size:.85rem; text-transform:uppercase; opacity:.75">Guess distribution (winning games)</h3>
+  <div id="free-dist"></div>
+  <h3 style="margin:1.2rem 0 .4rem; font-size:.85rem; text-transform:uppercase; opacity:.75">Word difficulty leaderboard</h3>
+  <div id="free-word-table"></div>
 
   <h2>Plays per daily game</h2>
   <div id="daily-table"></div>
 
-  <h2>Word difficulty leaderboard</h2>
-  <div id="word-table"></div>
-  <div class="legend">Solve % and average tries per word. Sorts by plays.</div>
+  <div class="legend" style="margin-top:1.2rem">1–6 = number of guesses used. Bar length relative to most common. Solve % and average tries per word; leaderboards sort by plays.</div>
 
   <div class="footer">Data: Supabase <code>tw_events</code> · aggregated via <code>tw_dashboard_stats()</code> · no cookies, no fingerprinting, aggregate-only.</div>
 </main>
@@ -96,45 +104,60 @@ function pct(a, b) { return b ? (100 * a / b).toFixed(1) + "%" : "—"; }
 
 function render(d) {
   document.getElementById("gen-at").textContent =
-    `generated ${new Date().toLocaleString()} · ${d.total_games} games · ${d.total_visits} visits`;
+    `generated ${new Date().toLocaleString()} · ${d.daily_games + d.free_games} games (${d.daily_games} daily + ${d.free_games} free) · ${d.total_visits} visits`;
 
   const cards = [
     [d.total_visits, "Visits"],
-    [d.total_games, "Games finished"],
-    [d.daily_plays, "Daily plays"],
-    [pct(d.total_wins, d.total_games), "Solve rate"],
-    [pct(d.daily_wins, d.daily_plays), "Daily solve rate"],
-    [pct(d.daily_plays, d.total_games), "Daily share of games"],
-    [pct(0, 100) === "" ? "" : `${d.hard_mode_share}%`, "Hard mode share"],
-    [`${d.share_rate}%`, "Games shared"],
-    [d.share_count, "Shares clicked"],
+    [d.daily_games + d.free_games, "Games finished"],
+    [d.daily_games, "Daily plays"],
+    [d.free_games, "Free plays"],
+    [pct(d.daily_wins, d.daily_games), "Daily solve rate"],
+    [pct(d.free_wins, d.free_games), "Free solve rate"],
+    [`${d.daily_hard_share}%`, "Daily hard mode"],
+    [`${d.free_hard_share}%`, "Free hard mode"],
   ];
   document.getElementById("top-cards").innerHTML = cards
     .map(([n, l]) => `<div class="card"><div class="num">${n ?? "—"}</div><div class="label">${l}</div></div>`)
     .join("");
 
-  // distribution
-  const dist = Object.entries(d.guess_distribution || {}).map(([k, v]) => [parseInt(k), v]).sort((a, b) => a[0] - b[0]);
-  const maxN = Math.max(...dist.map(([, n]) => n), 1);
-  document.getElementById("dist").innerHTML = [1, 2, 3, 4, 5, 6].map((n) => {
-    const v = (dist.find(([k]) => k === n) || [null, 0])[1];
-    const w = Math.max((v / maxN) * 100, 6);
-    return `<div style="display:flex;align-items:center;gap:8px;margin:3px 0"><div style="width:12px;font-weight:700">${n}</div><div class="bar-wrap" style="flex:1"><span class="bar" style="width:${w}%">${v}</span></div></div>`;
-  }).join("");
+  const renderMode = (mode, d) => {
+    // cards
+    const mcards = [
+      [d[`${mode}_games`], "Games"],
+      [d[`${mode}_wins`], "Wins"],
+      [`${d[`${mode}_solve_rate`]}%`, "Solve rate"],
+      [`${d[`${mode}_hard_share`]}%`, "Hard mode"],
+    ];
+    document.getElementById(`${mode}-cards`).innerHTML = mcards
+      .map(([n, l]) => `<div class="card"><div class="num">${n ?? "—"}</div><div class="label">${l}</div></div>`)
+      .join("");
 
-  // daily counts
+    // distribution
+    const dist = Object.entries(d[`${mode}_guess_distribution`] || {}).map(([k, v]) => [parseInt(k), v]).sort((a, b) => a[0] - b[0]);
+    const maxN = Math.max(...dist.map(([, n]) => n), 1);
+    document.getElementById(`${mode}-dist`).innerHTML = [1, 2, 3, 4, 5, 6].map((n) => {
+      const v = (dist.find(([k]) => k === n) || [null, 0])[1];
+      const w = Math.max((v / maxN) * 100, 6);
+      return `<div style="display:flex;align-items:center;gap:8px;margin:3px 0"><div style="width:12px;font-weight:700">${n}</div><div class="bar-wrap" style="flex:1"><span class="bar" style="width:${w}%">${v}</span></div></div>`;
+    }).join("");
+
+    // per word
+    const pw = Object.entries(d[`${mode}_words`] || {}).map(([w, s]) => ({ w, ...s }))
+      .sort((a, b) => b.plays - a.plays);
+    document.getElementById(`${mode}-word-table`).innerHTML = pw.length
+      ? `<table><tr><th>Word</th><th>Plays</th><th>Solve %</th><th>Avg tries</th></tr>${pw.map((r) =>
+          `<tr><td>${r.w}</td><td class="num-cell">${r.plays}</td><td class="num-cell">${pct(r.wins, r.plays)}</td><td class="num-cell">${r.avg_tries ?? "—"}</td></tr>`).join("")}</table>`
+      : "<em style='opacity:.5'>no games yet</em>";
+  };
+
+  renderMode("daily", d);
+  renderMode("free", d);
+
+  // daily counts (global, unchanged)
   const dc = Object.entries(d.daily_counts || {}).sort((a, b) => a[0] - b[0]);
   document.getElementById("daily-table").innerHTML = dc.length
     ? `<table><tr><th>Game #</th><th>Players (unique UA/day)</th></tr>${dc.map(([g, n]) => `<tr><td class="num-cell">${g}</td><td class="num-cell">${n}</td></tr>`).join("")}</table>`
     : "<em style='opacity:.5'>no daily plays yet</em>";
-
-  // per word
-  const pw = Object.entries(d.per_word || {}).map(([w, s]) => ({ w, ...s }))
-    .sort((a, b) => b.plays - a.plays);
-  document.getElementById("word-table").innerHTML = pw.length
-    ? `<table><tr><th>Word</th><th>Plays</th><th>Solve %</th><th>Avg tries</th></tr>${pw.map((r) =>
-        `<tr><td>${r.w}</td><td class="num-cell">${r.plays}</td><td class="num-cell">${pct(r.wins, r.plays)}</td><td class="num-cell">${r.avg_tries ?? "—"}</td></tr>`).join("")}</table>`
-    : "<em style='opacity:.5'>no games yet</em>";
 }
 
 async function tryKey(key, persist) {
